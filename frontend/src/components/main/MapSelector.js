@@ -99,6 +99,8 @@ export default function MapSelector(props) {
             onLoad={onAutoCompleteLoad}
             onPlaceChanged={onPlaceChanged}
             restrictions={{ country: ['ca', 'us'] }}
+            options={{ types: ['(cities)'] }}
+        
           >
             <input
               type="text"

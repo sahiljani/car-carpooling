@@ -15,6 +15,7 @@ const swaggerDocument = YAML.load('./swagger.yaml');
 
 const authRoutes = require("./Routes/authentication");
 const allusersRoutes = require("./Routes/allusersRoutes");
+const adminAuthRoutes = require("./Routes/adminAuth");
 //const userRoutes = require("./Routes/user.js");
 const tripRoutes = require("./Routes/tripRoutes");
 
@@ -42,6 +43,8 @@ app.use(cookieparser())
 app.use(cors())
 
 //Routes
+app.use("/api", adminAuthRoutes);
+
 app.use("/api", authRoutes);
 app.use("/api", allusersRoutes);
 //app.use("/api", userRoutes);
