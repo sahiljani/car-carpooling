@@ -1,6 +1,6 @@
-import { React, useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button, Col, Container, Row } from 'react-bootstrap';
-import { GoogleMap, DirectionsRenderer, DirectionsService, Marker } from '@react-google-maps/api';
+import { GoogleMap, DirectionsRenderer, DirectionsService } from '@react-google-maps/api';
 import Cookies from 'js-cookie';
 import Geocode from "react-geocode";
 
@@ -20,12 +20,17 @@ const center = {
     lat: 43.473078230478336,
     lng: -80.54225947407059,
 };
+
+const pricePerKm = 0.08; // Define your price per km here
+
 export default function ActiveTrip({ setActiveTrip }) {
     // For Map
     const [mapCoords, setMapCoords] = useState({})
     const [routeResp, setRouteResp] = useState();
     const [waypoints, setWaypoints] = useState([]);
     const mapRef = useRef();
+    const [amount, setAmount] = useState(0);
+    const [isDriver, setIsDriver] = useState(false);
 
     const onMapLoad = (map) => {
         mapRef.current = map;
@@ -33,12 +38,30 @@ export default function ActiveTrip({ setActiveTrip }) {
 
     const directionsCallback = (response) => {
         if (response !== null) {
-            if (response.status === 'OK')
-                setRouteResp(response)
-            else
-                alert('Problem fetching directions')
-        } else alert('Problem fetching directions')
-    }
+            if (response.status === 'OK') {
+                setRouteResp(response);
+                calculateAmount(response);
+            } else {
+                alert('Problem fetching directions');
+            }
+        } else {
+            alert('Problem fetching directions');
+        }
+    };
+
+    const calculateAmount = (response) => {
+        if (response.routes && response.routes.length > 0) {
+            const route = response.routes[0];
+            let distanceInKm = 0;
+
+            route.legs.forEach(leg => {
+                distanceInKm += leg.distance.value / 1000; // Convert meters to kilometers
+            });
+
+            const calculatedAmount = distanceInKm * pricePerKm;
+            setAmount(Math.floor(calculatedAmount.toFixed(2))); // Set the calculated amount
+        }
+    };
 
     // Format date and time
     const getDateandTime = (dtString) => {
@@ -83,9 +106,6 @@ export default function ActiveTrip({ setActiveTrip }) {
         );
     }
 
-    const [isDriver, setIsDriver] = useState(false);
-
-    // Enable 'Done' button only in driver mode 
     useEffect(() => {
         fetch(process.env.REACT_APP_END_POINT + '/trip/isdriver', {
             method: 'GET',
@@ -99,7 +119,7 @@ export default function ActiveTrip({ setActiveTrip }) {
             }
         }).then((responseJson) => {
             if (responseJson.isdriver) {
-                setIsDriver(true)
+                setIsDriver(true);
             }
         }).catch((error) => {
             alert(error);
@@ -189,7 +209,12 @@ export default function ActiveTrip({ setActiveTrip }) {
             if (temp_riders === "") {
                 temp_riders = "No rider currently"
             }
-            setriders(temp_riders)
+            if (responseJson.riders && responseJson.riders.length > 0) {
+                const temp_riders = responseJson.riders.join(', ');
+                setriders(temp_riders);
+            } else {
+                setriders("No Riders Yet");
+            }
 
             // Set Map Coords
             mapCoords['src'] = responseJson.source
@@ -204,7 +229,6 @@ export default function ActiveTrip({ setActiveTrip }) {
 
     return (
         <>
-            {/* <h1 id="pageTitle">Active Trip</h1> */}
             <GoogleMap
                 mapContainerStyle={mapContainerStyle}
                 zoom={15}
@@ -214,7 +238,6 @@ export default function ActiveTrip({ setActiveTrip }) {
                 {
                     (routeResp == null && mapCoords['src'] != null && mapCoords['dst'] != null) && (
                         <DirectionsService
-                            // required
                             options={{
                                 destination: mapCoords['dst'],
                                 origin: mapCoords['src'],
@@ -246,11 +269,21 @@ export default function ActiveTrip({ setActiveTrip }) {
                             <h3><span className='trip-attributes'>Date</span>: {datetime}</h3>
                             <h3 style={{ marginTop: '1rem' }}><span className='trip-attributes'>Driver</span>: {driver}</h3>
                             <h3><span className='trip-attributes'>Rider(s)</span>: {riders}</h3>
+                            <h3><span className='trip-attributes'>Amount</span>: ${amount}</h3>
                         </Row>
                     </Col>
                     <Col md="2">
                         <Row>
-                            {isDriver ? <Button variant='primary' id='doneTripButton' onClick={handleDone}> Done </Button> : null}
+                            {isDriver ? (
+                                <Button variant='primary' id='doneTripButton' onClick={handleDone}> Done </Button>
+                            ) : (
+                                // Add Razorpay payment button
+                                <div>
+                                    <form>
+                                        <script src="https://checkout.razorpay.com/v1/payment-button.js" data-payment_button_id="pl_OdMokI0gZrpwWk" async></script>
+                                    </form>
+                                </div>
+                            )}
                             <Button variant='danger' id='cancelTripButton' onClick={handleCancel}> Cancel trip </Button>
                         </Row>
                     </Col>
